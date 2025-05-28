@@ -1,0 +1,5 @@
+.env
+
+lgtm.io
+# Added by goreleaser init:
+dist/
