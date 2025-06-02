@@ -23,6 +23,10 @@ func (c *Client) GetPRAuthor(link PRLink) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		data, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("GitHub API error: %s", string(data))
+	}
 	var pr struct {
 		User struct {
 			Login string `json:"login"`
@@ -30,6 +34,10 @@ func (c *Client) GetPRAuthor(link PRLink) (string, error) {
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
 		return "", err
+	}
+	if pr.User.Login == "" {
+		data, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("PR author login is empty. Raw response: %s", string(data))
 	}
 	return pr.User.Login, nil
 }

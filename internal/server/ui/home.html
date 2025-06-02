@@ -1,0 +1,110 @@
+<html>
+<head>
+    <title>lgtm</title>
+    <!-- Include Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Favicon configuration -->
+    <link rel="icon" href="/assets/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/assets/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png">
+    <link rel="manifest" href="/assets/site.webmanifest">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            margin-top: 30px;
+            color: #555;
+        }
+        #result {
+            margin-top: 10px;
+            color: green;
+            font-weight: bold;
+        }
+        em {
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome, {{.User}}</h1>
+    <p><i class="fas fa-info-circle"></i> Submit a GitHub Pull Request Link to forward it to an available approver.</p>
+    <form id="approve-form">
+        <input
+            type="text"
+            name="pr_link"
+            id="pr_link"
+            size="80"
+            placeholder="PR Link"
+            style="
+                padding: 10px;
+                border: 1.5px solid #bbb;
+                border-radius: 6px;
+                font-size: 1rem;
+                width: 60%;
+                box-sizing: border-box;
+                transition: border-color 0.2s;
+            "
+            onfocus="this.style.borderColor='#888';"
+            onblur="this.style.borderColor='#bbb';"
+        />
+        <input
+            type="submit"
+            value="Submit"
+            style="
+                padding: 10px 20px;
+                border: none;
+                border-radius: 6px;
+                background-color: #4CAF50;
+                color: white;
+                font-size: 1rem;
+                cursor: pointer;
+                margin-left: 10px;
+                transition: background 0.2s;
+            "
+            onmouseover="this.style.backgroundColor='#388e3c';"
+            onmouseout="this.style.backgroundColor='#4CAF50';"
+        />
+    </form>
+    <div id="result"></div>
+    <h3><i class="fas fa-users"></i> Available Approvers: {{ .Approvers }}</h3>
+    <script>
+    document.getElementById('approve-form').onsubmit = async function(e) {
+        e.preventDefault();
+        const prInput = document.getElementById('pr_link');
+        const prLink = prInput.value;
+
+        // Show progress message
+        document.getElementById('result').innerText = "⏳ Submitting PR for approval...";
+
+        try {
+            const response = await fetch('/submit', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ pr_link: prLink })
+            });
+
+            const responseBody = await response.text();
+
+            if (!response.ok) {
+                const errorMessage = `❌ Failed to approve PR: ${responseBody}`;
+                document.getElementById('result').innerText = errorMessage;
+                throw new Error(errorMessage);
+            }
+
+            document.getElementById('result').innerHTML = `✔ <a href="${prLink}" target="_blank">${prLink}</a> has been approved`;
+            prInput.value = '';
+        } catch (error) {
+            console.error(error.message);
+        }
+    };
+    </script>
+</body>
+</html>

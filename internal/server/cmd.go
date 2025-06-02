@@ -1,90 +1,104 @@
 package server
 
 import (
+	"embed"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
-	"sync"
 
 	"github.com/clems4ever/lgtm/internal/common"
-	"github.com/gorilla/websocket"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"github.com/spf13/cobra"
 )
 
+// Embed the static assets directory for serving files like favicon, manifest, etc.
+//
+//go:embed ui/assets/*
+var staticAssets embed.FS
+
 var (
-	addrFlag         string
-	authTokenFlag    string
-	clientIDFlag     string
-	clientSecretFlag string
+	addrFlag          string // HTTP listen address
+	clientIDFlag      string // GitHub OAuth app client ID
+	baseURLFlag       string // Base URL for OAuth2 redirect
+	authServerURLFlag string
 )
 
 const (
-	defaultAddr = ":8080"
+	defaultAddr          = ":8080"
+	defaultAuthServerURL = "https://github.com/login/oauth"
+	defaultBaseURL       = "https://lgtm.clems4evever.com"
+	defaultGithubAPIURL  = "https://api.github.com"
 )
-
-type clientInfo struct {
-	conn *websocket.Conn
-	// if the githubUser variable is not set, it means the connection is established but
-	// the client have not registered yet.
-	githubUser string
-	repos      map[string]struct{} // set of "owner/repo"
-}
-
-var (
-	upgrader      = websocket.Upgrader{}
-	clients       = make(map[*websocket.Conn]*clientInfo)
-	clientsByRepo = make(map[string][]*clientInfo)
-	users         = make(map[string]struct{})
-	mu            sync.Mutex
-)
-
-// authMiddleware wraps an HTTP handler with authentication logic.
-// It checks the Authorization header for a Bearer token and ensures it matches the provided authToken.
-// If the token is invalid, the request is rejected with a 401 Unauthorized status.
-func authMiddleware(authToken string, fn http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Authenticate using the Authorization header
-		authHeader := r.Header.Get("Authorization")
-		if authHeader != "Bearer "+authToken {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		fn(w, r)
-	}
-}
 
 // BuildCommand creates the Cobra command for running the server.
-// It sets up the WebSocket handler with optional authentication based on the provided auth token.
+// It sets up the HTTP server, session store, static file serving, and all routes.
 func BuildCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "server",
 		Short: "Runs the server",
 		Run: func(cmd *cobra.Command, args []string) {
-			var server = Server{
-				cfg: common.SharedConfig{
-					ClientID:     clientIDFlag,
-					ClientSecret: clientSecretFlag,
-				},
+			// Read secrets from environment variables
+			apiAuthToken := os.Getenv("LGTM_API_AUTH_TOKEN")
+			clientSecret := os.Getenv("LGTM_GITHUB_CLIENT_SECRET")
+			if clientSecret == "" {
+				log.Fatal("LGTM_GITHUB_CLIENT_SECRET must be set")
 			}
-			var wsHandlerFn = server.wsHandler
-			var configHandlerFn = server.configHandler
-			// Wrap the WebSocket handler with authentication middleware if an auth token is provided
-			if authTokenFlag != "" {
-				wsHandlerFn = authMiddleware(authTokenFlag, wsHandlerFn)
-				configHandlerFn = authMiddleware(authTokenFlag, configHandlerFn)
-			} else {
-				log.Println("WARN no auth token provided, the server is not secured")
+			sessionStoreEncryptionKey := os.Getenv("LGTM_SESSION_STORE_ENCRYPTION_KEY")
+			if sessionStoreEncryptionKey == "" {
+				log.Fatal("LGTM_SESSION_STORE_ENCRYPTION_KEY must be set")
 			}
-			http.HandleFunc("/ws", wsHandlerFn)
-			http.HandleFunc("/config", configHandlerFn)
+
+			// Initialize the main server struct with OAuth2 config
+			var server = NewServer(
+				common.OauthConfigBuilder(common.OAuthConfigBuilderArgs{
+					AuthServerBaseURL: authServerURLFlag,
+					ClientID:          clientIDFlag,
+					ClientSecret:      clientSecret,
+					Scopes:            []string{"read:user"},
+					RedirectURL:       baseURLFlag + "/callback",
+				}))
+			defer server.Close()
+
+			// Initialize the session store for secure cookie-based sessions
+			cookieStore := sessions.NewCookieStore([]byte(sessionStoreEncryptionKey))
+			cookieStore.MaxAge(3600) // Set session expiration to 1 hour
+			cookieStore.Options.Path = "/"
+			cookieStore.Options.HttpOnly = true
+			cookieStore.Options.Secure = true // Ensure cookies are sent over HTTPS
+			server.sessionStore = cookieStore
+
+			// Create a new router for all HTTP routes
+			router := mux.NewRouter()
+
+			// Serve static assets (e.g., favicon, manifest, icons) under /assets/
+			subFS, err := fs.Sub(staticAssets, "ui/assets")
+			if err != nil {
+				log.Fatalf("failed to create sub filesystem: %v", err)
+			}
+			staticHandler := http.FileServer(http.FS(subFS))
+			router.PathPrefix("/assets/").Handler(http.StripPrefix("/assets/", staticHandler))
+
+			// Define application routes with appropriate middleware
+			router.HandleFunc("/", server.middlewareWebAuthMiddleware(server.handlerHome)).Methods(http.MethodGet)
+			router.HandleFunc("/submit", server.middlewareWebAuthMiddleware(server.handlerSubmit)).Methods(http.MethodPost)
+			router.HandleFunc("/callback", server.handlerCallback).Methods(http.MethodGet)
+			router.HandleFunc("/ws", apiAuthMiddleware(apiAuthToken, server.wsHandler)).Methods(http.MethodGet)
+
+			// Custom 404 handler for undefined paths
+			router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, "Resource not found", http.StatusNotFound)
+			})
+
 			log.Printf("Server listening on %s\n", addrFlag)
-			log.Fatal(http.ListenAndServe(addrFlag, nil))
+			log.Fatal(http.ListenAndServe(addrFlag, router))
 		},
 	}
 
+	// Define command-line flags for server configuration
 	cmd.Flags().StringVar(&addrFlag, "addr", defaultAddr, "addr to listen on")
-	cmd.Flags().StringVar(&authTokenFlag, "auth-token", "", "shared authentication token")
 	cmd.Flags().StringVar(&clientIDFlag, "client-id", os.Getenv("GITHUB_CLIENT_ID"), "client id of the gh app")
-	cmd.Flags().StringVar(&clientSecretFlag, "client-secret", os.Getenv("GITHUB_CLIENT_SECRET"), "client secret of the gh app")
+	cmd.Flags().StringVar(&baseURLFlag, "base-url", defaultBaseURL, "base URL of the service being served (for oauth2 redirect)")
 	return cmd
 }
