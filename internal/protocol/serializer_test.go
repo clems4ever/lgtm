@@ -47,24 +47,28 @@ func TestWriteAndReadApproveMessage(t *testing.T) {
 	mc := newMockConn(t)
 	defer mc.close()
 
-	orig := ApproveMessage{
-		Link:   github.PRLink{Owner: "foo", Repo: "bar", PRNumber: 42},
-		Author: "octocat",
+	orig := ApproveRequestMessage{
+		Link: github.PRLink{Owner: "foo", Repo: "bar", PRNumber: 42},
 	}
 	go func() {
-		if err := Write(mc.serverConn, orig); err != nil {
+		_, err := Write(mc.serverConn, orig)
+		if err != nil {
 			t.Errorf("Write error: %v", err)
 		}
 	}()
 
 	var msg Message
-	if err := Read(mc.client, &msg); err != nil {
+	err := Read(mc.client, &msg)
+	if err != nil {
 		t.Fatalf("Read error: %v", err)
 	}
-	if msg.Type != ApproveMessageType {
+	if msg.Type != ApproveRequestMessageType {
 		t.Errorf("expected Type Approve, got %v", msg.Type)
 	}
-	got, ok := msg.Message.(ApproveMessage)
+	if msg.RequestID == "" {
+		t.Errorf("expected non-empty requestID")
+	}
+	got, ok := msg.Message.(ApproveRequestMessage)
 	if !ok {
 		t.Fatalf("expected ApproveMessage, got %T", msg.Message)
 	}
@@ -82,17 +86,22 @@ func TestWriteAndReadRegisterMessage(t *testing.T) {
 		GithubUser: "octocat",
 	}
 	go func() {
-		if err := Write(mc.serverConn, orig); err != nil {
+		_, err := Write(mc.serverConn, orig)
+		if err != nil {
 			t.Errorf("Write error: %v", err)
 		}
 	}()
 
 	var msg Message
-	if err := Read(mc.client, &msg); err != nil {
+	err := Read(mc.client, &msg)
+	if err != nil {
 		t.Fatalf("Read error: %v", err)
 	}
 	if msg.Type != RegisterRequestMessageType {
 		t.Errorf("expected Type Register, got %v", msg.Type)
+	}
+	if msg.RequestID == "" {
+		t.Errorf("expected non-empty requestID")
 	}
 	got, ok := msg.Message.(RegisterRequestMessage)
 	if !ok {
@@ -106,7 +115,7 @@ func TestWriteAndReadRegisterMessage(t *testing.T) {
 func TestWriteUnsupportedType(t *testing.T) {
 	mc := newMockConn(t)
 	defer mc.close()
-	err := Write(mc.client, struct{ Foo string }{Foo: "bar"})
+	_, err := Write(mc.client, struct{ Foo string }{Foo: "bar"})
 	if err == nil {
 		t.Error("expected error for unsupported msg type, got nil")
 	}

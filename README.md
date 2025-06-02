@@ -7,47 +7,50 @@ LGTM is a lightweight tool designed to streamline the approval process for GitHu
 - **WebSocket Communication**: The server and client communicate via WebSocket for real-time updates.
 - **GitHub Integration**: Authenticate with GitHub and interact with repositories and pull requests.
 - **Approval Forwarding**: Automatically forward pull requests to available approvers.
-- **Browser-Based Authentication**: Authenticate using OAuth2 with GitHub via a browser.
 
 ## Getting Started
 
 ### Prerequisites
 
 - A GitHub account with access to the repositories you want to manage.
+- A **GitHub Classic Personal Access Token** with `repo` and `read:user` permissions for the client.
 
 ### Starting the Client
 
 The client connects to the server, authenticates with GitHub, and listens for pull request approval requests. Pull requests are submitted via a tiny web UI served by the client at the address you specify.
 
+**You must provide your GitHub Classic Personal Access Token via the `LGTM_GITHUB_TOKEN` environment variable.**
+**You must also provide the shared authentication token via the `LGTM_API_AUTH_TOKEN` environment variable.**
+
 1. Run the client:
    ```bash
-   go run ./internal/client/cmd.go client --server-url "ws://lgtm.clems4ever.com/ws" --addr ":8081" --auth-token "your-shared-token"
+   export LGTM_GITHUB_TOKEN=ghp_xxx... # must have 'repo' and 'read:user' scopes
+   export LGTM_API_AUTH_TOKEN=your-shared-token
+   go run ./internal/client/cmd.go client
    ```
 
-   - `--server-url`: The WebSocket URL of the server.
-   - `--addr`: The address and port the local client server will listen on to serve the UI (default is `:8081`).
-   - `--auth-token`: The shared token provided by the server owner and used to authenticate with the server.
-
-2. The client will start and open a browser for GitHub authentication. Follow the instructions to log in.
-
-3. Once authenticated, visit the local client server's home page:
-   ```
-   http://127.0.0.1:8081/
-   ```
-
-   Use the form to submit pull request links for approval.
+2. The client will start and use the provided GitHub token to authenticate. If the token is missing, the client will exit with an error. At this point the client should be able to handle PR approvals automatically.
 
 ### Starting the Server (only for admins)
 
 The server listens for WebSocket connections from clients and forwards pull requests to approvers.
 
+**You must provide the following secrets as environment variables:**
+- `LGTM_API_AUTH_TOKEN`: Shared authentication token for clients.
+- `LGTM_GITHUB_CLIENT_SECRET`: GitHub OAuth app client secret.
+- `LGTM_SESSION_STORE_ENCRYPTION_KEY`: Encryption key for session cookies.
+
 1. Run the server:
    ```bash
-   go run ./internal/server/cmd.go server --addr ":8080" --auth-token "your-shared-token"
+   export LGTM_API_AUTH_TOKEN=your-shared-token
+   export LGTM_GITHUB_CLIENT_SECRET=your-gh-client-secret
+   export LGTM_SESSION_STORE_ENCRYPTION_KEY=your-session-key
+   go run ./internal/server/cmd.go server --addr ":8080" --client-id "your-gh-client-id" --base-url "https://your-lgtm-url"
    ```
 
-   - `--addr`: The address and port the server will listen on (default is `:8080`).
-   - `--auth-token`: A shared token used to authenticate clients.
+   - `--addr`: The address and port the server will listen on (default: `:8080`).
+   - `--client-id`: The client ID of your GitHub OAuth app.
+   - `--base-url`: The base URL of the service being served (for OAuth2 redirect).
 
 2. The server will start and log the listening address:
    ```

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -19,8 +20,15 @@ func Read(conn *websocket.Conn, msg *Message) error {
 	}
 
 	switch msg.Type {
-	case ApproveMessageType:
-		var approvalMessage ApproveMessage
+	case ApproveRequestMessageType:
+		var approvalMessage ApproveRequestMessage
+		err = json.Unmarshal(mb, &approvalMessage)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal message: %w", err)
+		}
+		msg.Message = approvalMessage
+	case ApproveResponseMessageType:
+		var approvalMessage ApproveResponseMessage
 		err = json.Unmarshal(mb, &approvalMessage)
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal message: %w", err)
@@ -33,39 +41,41 @@ func Read(conn *websocket.Conn, msg *Message) error {
 			return fmt.Errorf("failed to unmarshal message: %w", err)
 		}
 		msg.Message = tMsg
-	case ApproverEventMessageType:
-		var tMsg ApproverEventMessage
-		err = json.Unmarshal(mb, &tMsg)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal message: %w", err)
-		}
-		msg.Message = tMsg
 	default:
 		return fmt.Errorf("unsupported message type: %s", msg.Type)
 	}
 	return nil
 }
 
-func Write(conn *websocket.Conn, msg any) error {
+// Write sends a message with a generated request ID and returns the request ID.
+func Write(conn *websocket.Conn, msg any) (string, error) {
+	requestID := uuid.NewString()
+	err := WriteWithRequestID(conn, msg, requestID)
+	return requestID, err
+}
+
+// WriteWithRequestID sends a message with a provided request ID.
+func WriteWithRequestID(conn *websocket.Conn, msg any, requestID string) error {
 	switch v := msg.(type) {
-	case ApproveMessage:
-		conn.WriteJSON(Message{
-			Type:    ApproveMessageType,
-			Message: v,
+	case ApproveRequestMessage:
+		return conn.WriteJSON(Message{
+			Type:      ApproveRequestMessageType,
+			RequestID: requestID,
+			Message:   v,
+		})
+	case ApproveResponseMessage:
+		return conn.WriteJSON(Message{
+			Type:      ApproveResponseMessageType,
+			RequestID: requestID,
+			Message:   v,
 		})
 	case RegisterRequestMessage:
-		conn.WriteJSON(Message{
-			Type:    RegisterRequestMessageType,
-			Message: v,
-		})
-	case ApproverEventMessage:
-		conn.WriteJSON(Message{
-			Type:    ApproverEventMessageType,
-			Message: v,
+		return conn.WriteJSON(Message{
+			Type:      RegisterRequestMessageType,
+			RequestID: requestID,
+			Message:   v,
 		})
 	default:
 		return fmt.Errorf("unsupported msg type")
 	}
-	return nil
-
 }

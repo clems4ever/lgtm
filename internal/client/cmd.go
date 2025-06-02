@@ -1,41 +1,23 @@
 package client
 
 import (
+	"fmt"
 	"log"
-	"net"
-	"strconv"
+	"os"
+	"time"
 
-	"github.com/clems4ever/lgtm/internal/github"
 	"github.com/spf13/cobra"
 )
 
 var (
-	serverURLFlag     string
-	addrFlag          string
-	authTokenFlag     string
-	authServerURLFlag string
+	serverURLFlag         string
+	reconnectIntervalFlag time.Duration
 )
 
 const (
-	defaultServerURL     = "https://lgtm.clems4ever.com"
-	defaultAuthServerURL = "https://github.com/login/oauth"
-	defaultAddr          = ":8081"
+	defaultServerURL         = "https://lgtm.clems4ever.com"
+	defaultReconnectInterval = 15 * time.Second
 )
-
-// extractPort extracts the port number from a given address string.
-// It expects the address to be in the format "host:port" and returns the port as an integer.
-// If the address is invalid or the port cannot be parsed, the function logs a fatal error.
-func extractPort(addr string) int {
-	_, portStr, err := net.SplitHostPort(addr)
-	if err != nil {
-		log.Fatalf("failed to parse port: %s", err)
-	}
-	port, err := strconv.ParseInt(portStr, 10, 64)
-	if err != nil {
-		log.Fatalf("failed to parse int: %s", err)
-	}
-	return int(port)
-}
 
 // BuildCommand creates the root Cobra command for the lgtm client.
 // It sets up flags for configuring the server URL, local address, and authentication token.
@@ -46,18 +28,25 @@ func BuildCommand() *cobra.Command {
 		Use:   "client",
 		Short: "Client commands for lgtm",
 		Run: func(cmd *cobra.Command, args []string) {
-			// Retrieve the path to the GitHub token file
-			path, err := github.GetTokenFilePath()
-			if err != nil {
-				log.Fatalf("failed to get token file path: %s", err)
+			githubToken := os.Getenv("LGTM_GITHUB_TOKEN")
+			if githubToken == "" {
+				fmt.Println("LGTM_GITHUB_TOKEN env var must be provided. " +
+					"Make sure it has the 'repo' and 'read:user' permissions and that the token is authorized " +
+					"on all orgs you want to be an approver for.")
+				os.Exit(1)
 			}
 
-			// Initialize the browser-based authentication callback
-			authCallback := NewBrowserAuthCallback()
+			authToken := os.Getenv("LGTM_API_AUTH_TOKEN")
 
 			// Start the client with the provided configuration
-			err = NewClient(serverURLFlag, authTokenFlag, addrFlag, path, "", authServerURLFlag, authCallback, nil).
-				Start()
+			c, err := NewClient(serverURLFlag, authToken,
+				reconnectIntervalFlag,
+				githubToken, "", nil)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			err = c.Start()
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -66,9 +55,7 @@ func BuildCommand() *cobra.Command {
 
 	// Define flags for the command
 	cmd.Flags().StringVar(&serverURLFlag, "server-url", defaultServerURL, "url to the lgtm relay server")
-	cmd.Flags().StringVar(&addrFlag, "addr", defaultAddr, "addr to listen on")
-	cmd.Flags().StringVar(&authTokenFlag, "auth-token", "", "shared authentication token")
-	cmd.Flags().StringVar(&authServerURLFlag, "auth-server-url", defaultAuthServerURL, "url to the GitHub OAuth server")
+	cmd.Flags().DurationVar(&reconnectIntervalFlag, "reconnect-interval", defaultReconnectInterval, "time between two reconnection attempts")
 
 	return cmd
 }

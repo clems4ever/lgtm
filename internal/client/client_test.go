@@ -2,7 +2,6 @@ package client_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,7 +11,6 @@ import (
 	"time"
 
 	"github.com/clems4ever/lgtm/internal/client"
-	"github.com/clems4ever/lgtm/internal/common"
 	"github.com/clems4ever/lgtm/internal/test"
 	"github.com/stretchr/testify/require"
 )
@@ -22,12 +20,6 @@ func mockWebsocketServer(t *testing.T, connCh chan struct{}) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/config":
-			err := json.NewEncoder(w).Encode(common.SharedConfig{
-				ClientID:     "test",
-				ClientSecret: "test",
-			})
-			require.NoError(t, err)
 		case "/ws":
 			connCh <- struct{}{}
 			w.Header().Set("Content-Type", "application/json")
@@ -63,18 +55,26 @@ func newMockServers(t *testing.T, port int, connCh chan struct{}) (*httptest.Ser
 	t.Cleanup(func() {
 		githubSrv.Close()
 	})
+
+	githubSrv.AddUser("testuser", "access-token", []test.Repo{
+		{
+			FullName: "testuser/myrepo",
+			Permissions: test.RepoPermissions{
+				Push: true,
+			},
+		},
+	})
 	return wsServer, githubSrv, tokenPath
 }
 
 func newClient(t *testing.T, ctx context.Context, port int) *client.Client {
 	connCh := make(chan struct{})
-	wsServer, githubSrv, tokenPath := newMockServers(t, port, connCh)
-
-	authCallback := test.NewTestAuthCallback()
+	wsServer, githubSrv, _ := newMockServers(t, port, connCh)
 
 	// Prepare the client
-	c := client.NewClient(wsServer.URL, "", fmt.Sprintf(":%d", port), tokenPath,
-		githubSrv.URL(), githubSrv.URL(), authCallback, http.DefaultClient)
+	c, err := client.NewClient(wsServer.URL, "", time.Second, "access-token",
+		githubSrv.URL(), http.DefaultClient)
+	require.NoError(t, err)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -101,21 +101,5 @@ func TestClient_Run(t *testing.T) {
 	defer cancel()
 	c := newClient(t, ctx, 8050)
 
-	err := c.Shutdown(ctx)
-	require.NoError(t, err)
-}
-
-func TestClient_GetHomePage(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	port := 8051
-	c := newClient(t, ctx, port)
-
-	res, err := http.Get(fmt.Sprintf("http://localhost:%d", port))
-	require.NoError(t, err)
-
-	require.Equal(t, 200, res.StatusCode)
-
-	err = c.Shutdown(ctx)
-	require.NoError(t, err)
+	c.Stop()
 }
