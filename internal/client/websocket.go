@@ -114,6 +114,8 @@ func (c *Client) connectToWsServerAndListen(ctx context.Context, serverURL *url.
 				if err != nil {
 					log.Printf("failed to handle message: %s\n", err)
 				}
+			case protocol.PingMessage:
+				// do nothing here, we just make sure the message is supported.
 			default:
 				log.Println("unsupported message type", msg.Type)
 				continue

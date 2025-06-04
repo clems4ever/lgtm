@@ -129,7 +129,7 @@ func (s *Server) handleAsyncMessage(msg any, info *clientInfo) {
 			log.Printf("failed to handle message: %s", err)
 		}
 	case protocol.PingMessage:
-		// fmt.Println("ping")
+		// do nothing here, we just make sure the message is supported.
 	default:
 		log.Println("unsupported message type")
 	}
