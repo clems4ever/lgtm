@@ -26,7 +26,7 @@ See [examples/docker/README.md](examples/docker/README.md) for instructions and 
 
 The client connects to the server, authenticates with GitHub, and listens for pull request approval requests. Pull requests are submitted via a tiny web UI served by the client at the address you specify.
 
-**You must provide your GitHub Classic Personal Access Token via the `LGTM_GITHUB_TOKEN` environment variable.**
+**You must provide your GitHub Classic Personal Access Token via the `LGTM_GITHUB_TOKEN` environment variable.**  
 **You must also provide the shared authentication token via the `LGTM_API_AUTH_TOKEN` environment variable.**
 
 1. Run the client:
@@ -36,6 +36,10 @@ The client connects to the server, authenticates with GitHub, and listens for pu
    go run ./internal/client/cmd.go client
    ```
 
+   - `--server-url`: The WebSocket URL of the server (default: `https://lgtm.clems4ever.com`).
+   - `--reconnect-interval`: Time between two reconnection attempts (default: `15s`).
+   - `--ping-interval`: Interval for websocket ping messages (default: `10s`).
+
 2. The client will start and use the provided GitHub token to authenticate. If the token is missing, the client will exit with an error. At this point the client should be able to handle PR approvals automatically.
 
 ### Starting the Server (only for admins)
@@ -44,6 +48,7 @@ The server listens for WebSocket connections from clients and forwards pull requ
 
 **You must provide the following secrets as environment variables:**
 - `LGTM_API_AUTH_TOKEN`: Shared authentication token for clients.
+- `LGTM_GITHUB_CLIENT_ID`: GitHub OAuth app client ID.
 - `LGTM_GITHUB_CLIENT_SECRET`: GitHub OAuth app client secret.
 - `LGTM_SESSION_STORE_ENCRYPTION_KEY`: Encryption key for session cookies.
 
@@ -58,6 +63,8 @@ The server listens for WebSocket connections from clients and forwards pull requ
 
    - `--addr`: The address and port the server will listen on (default: `:8080`).
    - `--base-url`: The base URL of the service being served (for OAuth2 redirect).
+   - `--auth-server-url`: The URL to the GitHub OAuth server (default: `https://github.com/login/oauth`).
+   - `--ping-interval`: Interval for websocket ping messages (default: `10s`).
 
 2. The server will start and log the listening address:
    ```
