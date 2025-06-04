@@ -2,7 +2,6 @@ package server
 
 import (
 	"embed"
-	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -56,8 +55,6 @@ func BuildCommand() *cobra.Command {
 			if sessionStoreEncryptionKey == "" {
 				log.Fatal("LGTM_SESSION_STORE_ENCRYPTION_KEY must be set")
 			}
-
-			fmt.Println(clientID, baseURLFlag)
 
 			// Initialize the main server struct with OAuth2 config
 			var server = NewServer(
