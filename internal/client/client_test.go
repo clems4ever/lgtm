@@ -72,8 +72,10 @@ func newClient(t *testing.T, ctx context.Context, port int) *client.Client {
 	wsServer, githubSrv, _ := newMockServers(t, port, connCh)
 
 	// Prepare the client
-	c, err := client.NewClient(wsServer.URL, "", time.Second, "access-token",
-		githubSrv.URL(), http.DefaultClient)
+	c, err := client.NewClient(wsServer.URL, "", time.Second, time.Second,
+		"access-token",
+		githubSrv.URL(),
+		http.DefaultClient)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup

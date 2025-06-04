@@ -21,6 +21,9 @@ type Client struct {
 	// The shared authentication token for the relay server.
 	authToken string
 
+	// The interval between two pings to the server to keep the connection open.
+	pingInterval time.Duration
+
 	// GitHub client for interacting with the GitHub API.
 	githubClient *github.Client
 	// The handle of the github user this client is served with.
@@ -43,6 +46,7 @@ func NewClient(
 	serverURL string,
 	authToken string,
 	reconnectInterval time.Duration,
+	pingInterval time.Duration,
 	githubToken string,
 	githubAPIBaseURL string,
 	httpClient *http.Client, // for testing
@@ -64,6 +68,7 @@ func NewClient(
 	return &Client{
 		serverURL:         serverURL,
 		authToken:         authToken,
+		pingInterval:      pingInterval,
 		reconnectInterval: reconnectInterval,
 		ctx:               ctx,
 		done:              cancel,

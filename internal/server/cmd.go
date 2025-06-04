@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/clems4ever/lgtm/internal/common"
 	"github.com/gorilla/mux"
@@ -23,6 +24,7 @@ var (
 	addrFlag          string // HTTP listen address
 	baseURLFlag       string // Base URL for OAuth2 redirect
 	authServerURLFlag string
+	pingIntervalFlag  time.Duration
 )
 
 const (
@@ -30,6 +32,7 @@ const (
 	defaultAuthServerURL = "https://github.com/login/oauth"
 	defaultBaseURL       = "https://lgtm.clems4evever.com"
 	defaultGithubAPIURL  = "https://api.github.com"
+	defaultPingInterval  = 10 * time.Second
 )
 
 // BuildCommand creates the Cobra command for running the server.
@@ -64,7 +67,7 @@ func BuildCommand() *cobra.Command {
 					ClientSecret:      clientSecret,
 					Scopes:            []string{"read:user"},
 					RedirectURL:       baseURLFlag + "/callback",
-				}))
+				}), pingIntervalFlag)
 			defer server.Close()
 
 			// Initialize the session store for secure cookie-based sessions
@@ -106,5 +109,6 @@ func BuildCommand() *cobra.Command {
 	cmd.Flags().StringVar(&addrFlag, "addr", defaultAddr, "addr to listen on")
 	cmd.Flags().StringVar(&baseURLFlag, "base-url", defaultBaseURL, "base URL of the service being served (for oauth2 redirect)")
 	cmd.Flags().StringVar(&authServerURLFlag, "auth-server-url", defaultAuthServerURL, "url to the GitHub OAuth server")
+	cmd.Flags().DurationVar(&pingIntervalFlag, "ping-interval", defaultPingInterval, "interval for websocket ping messages")
 	return cmd
 }

@@ -73,7 +73,7 @@ func (s *Server) wsHandler(w http.ResponseWriter, r *http.Request) {
 
 	wg.Add(1)
 	go func() {
-		ticker := time.NewTicker(20 * time.Second)
+		ticker := time.NewTicker(s.pingInterval)
 		for {
 			select {
 			case <-ticker.C:

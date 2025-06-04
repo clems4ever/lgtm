@@ -12,11 +12,13 @@ import (
 var (
 	serverURLFlag         string
 	reconnectIntervalFlag time.Duration
+	pingIntervalFlag      time.Duration
 )
 
 const (
 	defaultServerURL         = "https://lgtm.clems4ever.com"
 	defaultReconnectInterval = 15 * time.Second
+	defaultPingInterval      = 10 * time.Second
 )
 
 // BuildCommand creates the root Cobra command for the lgtm client.
@@ -39,8 +41,11 @@ func BuildCommand() *cobra.Command {
 			authToken := os.Getenv("LGTM_API_AUTH_TOKEN")
 
 			// Start the client with the provided configuration
-			c, err := NewClient(serverURLFlag, authToken,
+			c, err := NewClient(
+				serverURLFlag,
+				authToken,
 				reconnectIntervalFlag,
+				pingIntervalFlag,
 				githubToken, "", nil)
 			if err != nil {
 				log.Fatal(err)
@@ -56,6 +61,7 @@ func BuildCommand() *cobra.Command {
 	// Define flags for the command
 	cmd.Flags().StringVar(&serverURLFlag, "server-url", defaultServerURL, "url to the lgtm relay server")
 	cmd.Flags().DurationVar(&reconnectIntervalFlag, "reconnect-interval", defaultReconnectInterval, "time between two reconnection attempts")
+	cmd.Flags().DurationVar(&pingIntervalFlag, "ping-interval", defaultPingInterval, "interval for websocket ping messages")
 
 	return cmd
 }

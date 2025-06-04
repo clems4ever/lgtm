@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/clems4ever/lgtm/internal/protocol"
 	"github.com/gorilla/sessions"
@@ -31,6 +32,7 @@ type Server struct {
 
 	sessionStore *sessions.CookieStore
 	httpClient   *http.Client
+	pingInterval time.Duration
 
 	approvalEngine *ApprovalEngine
 
@@ -43,7 +45,7 @@ type Server struct {
 	wg              sync.WaitGroup
 }
 
-func NewServer(oauth2Config *oauth2.Config) *Server {
+func NewServer(oauth2Config *oauth2.Config, pingInterval time.Duration) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Server{
 		oauth2Config:     oauth2Config,
@@ -53,6 +55,7 @@ func NewServer(oauth2Config *oauth2.Config) *Server {
 		asyncRequests:    make(map[string]*protocol.ResponseFuture),
 		ctx:              ctx,
 		done:             cancel,
+		pingInterval:     pingInterval,
 	}
 }
 
