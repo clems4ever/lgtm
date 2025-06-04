@@ -2,13 +2,32 @@ package protocol
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
+var (
+	ErrUnsupportedMessageType = fmt.Errorf("unsupported message type")
+)
+
 func Read(conn *websocket.Conn, msg *Message) error {
+	for {
+		err := readOne(conn, msg)
+		if err != nil {
+			// if the message is unsupported just wait the next one.
+			if errors.Is(err, ErrUnsupportedMessageType) {
+				continue
+			}
+			return err
+		}
+		return nil
+	}
+}
+
+func readOne(conn *websocket.Conn, msg *Message) error {
 	err := conn.ReadJSON(msg)
 	if err != nil {
 		return fmt.Errorf("failed to read json message: %w", err)
@@ -49,7 +68,7 @@ func Read(conn *websocket.Conn, msg *Message) error {
 		}
 		msg.Message = tMsg
 	default:
-		return fmt.Errorf("unsupported message type: %s", msg.Type)
+		return ErrUnsupportedMessageType
 	}
 	return nil
 }
@@ -89,6 +108,6 @@ func WriteWithRequestID(conn *websocket.Conn, msg any, requestID string) error {
 			Message:   v,
 		})
 	default:
-		return fmt.Errorf("unsupported msg type")
+		return ErrUnsupportedMessageType
 	}
 }
