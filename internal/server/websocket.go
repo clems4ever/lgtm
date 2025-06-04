@@ -71,22 +71,24 @@ func (s *Server) wsHandler(w http.ResponseWriter, r *http.Request) {
 		close(connectionClosedC)
 	}()
 
-	wg.Add(1)
-	go func() {
-		ticker := time.NewTicker(s.pingInterval)
-		for {
-			select {
-			case <-ticker.C:
-				_, err := protocol.Write(conn, protocol.PingMessage{})
-				if err != nil {
-					log.Println("failed to ping")
+	if s.pingInterval > 0 {
+		wg.Add(1)
+		go func() {
+			ticker := time.NewTicker(s.pingInterval)
+			for {
+				select {
+				case <-ticker.C:
+					_, err := protocol.Write(conn, protocol.PingMessage{})
+					if err != nil {
+						log.Println("failed to ping")
+					}
+				case <-connectionClosedC:
+					return
 				}
-			case <-connectionClosedC:
-				return
 			}
-		}
 
-	}()
+		}()
+	}
 
 	wg.Wait()
 

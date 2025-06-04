@@ -103,6 +103,7 @@ func (c *Client) connectToWsServerAndListen(ctx context.Context, serverURL *url.
 		for {
 			var msg protocol.Message
 			if err := protocol.Read(conn, &msg); err != nil {
+				log.Printf("disconnected from server: %s\n", err)
 				break
 			}
 
@@ -118,27 +119,28 @@ func (c *Client) connectToWsServerAndListen(ctx context.Context, serverURL *url.
 				continue
 			}
 		}
-		log.Println("disconnected from server")
 		close(connectionClosedC)
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		ticker := time.NewTicker(c.pingInterval)
+	if c.pingInterval > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ticker := time.NewTicker(c.pingInterval)
 
-		for {
-			select {
-			case <-ticker.C:
-				_, err := protocol.Write(conn, protocol.PingMessage{})
-				if err != nil {
-					log.Println("failed to ping")
+			for {
+				select {
+				case <-ticker.C:
+					_, err := protocol.Write(conn, protocol.PingMessage{})
+					if err != nil {
+						log.Println("failed to ping")
+					}
+				case <-connectionClosedC:
+					return
 				}
-			case <-connectionClosedC:
-				return
 			}
-		}
-	}()
+		}()
+	}
 
 	wg.Wait()
 	return fmt.Errorf("disconnected")
