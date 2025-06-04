@@ -1,0 +1,26 @@
+services:
+  server:
+    image: ghcr.io/clems4ever/lgtm:v0.0.8
+    restart: always
+    expose:
+      - 8080
+    env_file:
+      - server.env
+    command:
+      - "/app"
+      - "server"
+      - "--client-id"
+      - "XXXXXXXXXXXXXXXXXXXX"
+      - "--base-url"
+      - "https://lgtm.clems4ever.com"
+
+  client:
+    image: ghcr.io/clems4ever/lgtm:v0.0.8
+    labels:
+      - "traefik.enable=false"
+    restart: always
+    env_file:
+      - client.env
+    command:
+      - "/app"
+      - "client"

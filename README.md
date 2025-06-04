@@ -10,6 +10,13 @@ LGTM is a lightweight tool designed to streamline the approval process for GitHu
 
 ## Getting Started
 
+### Quick Start with Docker
+
+The easiest way to deploy LGTM is using Docker Compose.  
+See [examples/docker/README.md](examples/docker/README.md) for instructions and environment variable requirements.
+
+---
+
 ### Prerequisites
 
 - A GitHub account with access to the repositories you want to manage.
