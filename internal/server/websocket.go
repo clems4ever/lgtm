@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/clems4ever/lgtm/internal/github"
@@ -41,25 +42,53 @@ func (s *Server) wsHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("new client connected!")
 
-	// Listen for messages from the client
-	for {
-		var message protocol.Message
-		err := protocol.Read(conn, &message)
-		if err != nil {
-			break
+	var wg sync.WaitGroup
+
+	connectionClosedC := make(chan struct{})
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Listen for messages from the client
+		for {
+			var message protocol.Message
+			err := protocol.Read(conn, &message)
+			if err != nil {
+				break
+			}
+
+			// Handle async responses or registration messages
+			s.asyncRequestsMu.Lock()
+			req, ok := s.asyncRequests[message.RequestID]
+			if ok {
+				s.handleAsyncResponse(message.RequestID, req, message.Message)
+				s.asyncRequestsMu.Unlock()
+				continue
+			}
+			s.asyncRequestsMu.Unlock()
+			s.handleAsyncMessage(message.Message, &info)
+		}
+		close(connectionClosedC)
+	}()
+
+	wg.Add(1)
+	go func() {
+		ticker := time.NewTicker(20 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				_, err := protocol.Write(conn, protocol.PingMessage{})
+				if err != nil {
+					log.Println("failed to ping")
+				}
+			case <-connectionClosedC:
+				return
+			}
 		}
 
-		// Handle async responses or registration messages
-		s.asyncRequestsMu.Lock()
-		req, ok := s.asyncRequests[message.RequestID]
-		if ok {
-			s.handleAsyncResponse(message.RequestID, req, message.Message)
-			s.asyncRequestsMu.Unlock()
-			continue
-		}
-		s.asyncRequestsMu.Unlock()
-		s.handleAsyncMessage(message.Message, &info)
-	}
+	}()
+
+	wg.Wait()
 
 	// Clean up the client on disconnection
 	s.mu.Lock()

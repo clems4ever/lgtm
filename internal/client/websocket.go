@@ -125,7 +125,7 @@ func (c *Client) connectToWsServerAndListen(ctx context.Context, serverURL *url.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(20 * time.Second)
 
 		for {
 			select {
