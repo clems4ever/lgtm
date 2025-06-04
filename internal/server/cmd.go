@@ -2,6 +2,7 @@ package server
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -20,7 +21,6 @@ var staticAssets embed.FS
 
 var (
 	addrFlag          string // HTTP listen address
-	clientIDFlag      string // GitHub OAuth app client ID
 	baseURLFlag       string // Base URL for OAuth2 redirect
 	authServerURLFlag string
 )
@@ -41,6 +41,10 @@ func BuildCommand() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			// Read secrets from environment variables
 			apiAuthToken := os.Getenv("LGTM_API_AUTH_TOKEN")
+			clientID := os.Getenv("LGTM_GITHUB_CLIENT_ID")
+			if clientID == "" {
+				log.Fatal("LGTM_GITHUB_CLIENT_ID must be set")
+			}
 			clientSecret := os.Getenv("LGTM_GITHUB_CLIENT_SECRET")
 			if clientSecret == "" {
 				log.Fatal("LGTM_GITHUB_CLIENT_SECRET must be set")
@@ -50,11 +54,13 @@ func BuildCommand() *cobra.Command {
 				log.Fatal("LGTM_SESSION_STORE_ENCRYPTION_KEY must be set")
 			}
 
+			fmt.Println(clientID, baseURLFlag)
+
 			// Initialize the main server struct with OAuth2 config
 			var server = NewServer(
 				common.OauthConfigBuilder(common.OAuthConfigBuilderArgs{
 					AuthServerBaseURL: authServerURLFlag,
-					ClientID:          clientIDFlag,
+					ClientID:          clientID,
 					ClientSecret:      clientSecret,
 					Scopes:            []string{"read:user"},
 					RedirectURL:       baseURLFlag + "/callback",
@@ -98,7 +104,6 @@ func BuildCommand() *cobra.Command {
 
 	// Define command-line flags for server configuration
 	cmd.Flags().StringVar(&addrFlag, "addr", defaultAddr, "addr to listen on")
-	cmd.Flags().StringVar(&clientIDFlag, "client-id", os.Getenv("GITHUB_CLIENT_ID"), "client id of the gh app")
 	cmd.Flags().StringVar(&baseURLFlag, "base-url", defaultBaseURL, "base URL of the service being served (for oauth2 redirect)")
 	cmd.Flags().StringVar(&authServerURLFlag, "auth-server-url", defaultAuthServerURL, "url to the GitHub OAuth server")
 	return cmd

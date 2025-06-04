@@ -1,6 +1,6 @@
-# LGTM - Lightweight GitHub Team Manager
+# LGTM - Auto Approve GitHub Pull Requests
 
-LGTM is a lightweight tool designed to streamline the approval process for GitHub pull requests. It consists of a server and a client that work together to forward pull requests to available approvers in your team.
+LGTM is a simple project that automatically approves GitHub pull requests. It consists of a server and a client that work together to forward pull requests to available approvers in your team.
 
 ## Features
 
