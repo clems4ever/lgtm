@@ -9,6 +9,7 @@ const (
 	ApproveResponseMessageType MessageType = "approve_response"
 	// RegisterRequestMessageType is sent by a client to register itself as an approver.
 	RegisterRequestMessageType MessageType = "register_request"
+	PingMessageType            MessageType = "ping"
 )
 
 // Message is a generic wrapper for protocol messages exchanged over the websocket.

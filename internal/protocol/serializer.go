@@ -41,6 +41,13 @@ func Read(conn *websocket.Conn, msg *Message) error {
 			return fmt.Errorf("failed to unmarshal message: %w", err)
 		}
 		msg.Message = tMsg
+	case PingMessageType:
+		var tMsg PingMessage
+		err = json.Unmarshal(mb, &tMsg)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal message: %w", err)
+		}
+		msg.Message = tMsg
 	default:
 		return fmt.Errorf("unsupported message type: %s", msg.Type)
 	}
@@ -72,6 +79,12 @@ func WriteWithRequestID(conn *websocket.Conn, msg any, requestID string) error {
 	case RegisterRequestMessage:
 		return conn.WriteJSON(Message{
 			Type:      RegisterRequestMessageType,
+			RequestID: requestID,
+			Message:   v,
+		})
+	case PingMessage:
+		return conn.WriteJSON(Message{
+			Type:      PingMessageType,
 			RequestID: requestID,
 			Message:   v,
 		})

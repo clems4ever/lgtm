@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/clems4ever/lgtm/internal/protocol"
@@ -32,7 +33,7 @@ func (c *Client) autoconnectToWsServerAndListen(ctx context.Context, serverURL *
 			if ctx.Err() != nil {
 				return
 			}
-			log.Printf("%v. Retrying in %s...", err, c.reconnectInterval)
+			fmt.Printf("%v. Retrying in %s...\n", err, c.reconnectInterval)
 			select {
 			case <-time.After(c.reconnectInterval):
 			case <-ctx.Done():
@@ -91,27 +92,55 @@ func (c *Client) connectToWsServerAndListen(ctx context.Context, serverURL *url.
 		return fmt.Errorf("failed to register approver: %w", err)
 	}
 
-	// Listen for PR approval requests from the server
-	for {
-		var msg protocol.Message
-		if err := protocol.Read(conn, &msg); err != nil {
-			break
-		}
+	var wg sync.WaitGroup
+	// this channel allows to signal the ping routine that the connection has closed.
+	connectionClosedC := make(chan struct{})
 
-		switch v := msg.Message.(type) {
-		case protocol.ApproveRequestMessage:
-			// Handle an approval request message
-			err = c.handleApproveMessage(conn, msg.RequestID, v)
-			if err != nil {
-				log.Printf("failed to handle message: %s\n", err)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// Listen for PR approval requests from the server
+		for {
+			var msg protocol.Message
+			if err := protocol.Read(conn, &msg); err != nil {
+				break
 			}
-		default:
-			log.Println("unsupported message type", msg.Type)
-			continue
-		}
-	}
 
-	log.Println("disconnected from server")
+			switch v := msg.Message.(type) {
+			case protocol.ApproveRequestMessage:
+				// Handle an approval request message
+				err = c.handleApproveMessage(conn, msg.RequestID, v)
+				if err != nil {
+					log.Printf("failed to handle message: %s\n", err)
+				}
+			default:
+				log.Println("unsupported message type", msg.Type)
+				continue
+			}
+		}
+		log.Println("disconnected from server")
+		close(connectionClosedC)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		ticker := time.NewTicker(5 * time.Second)
+
+		for {
+			select {
+			case <-ticker.C:
+				_, err := protocol.Write(conn, protocol.PingMessage{})
+				if err != nil {
+					log.Println("failed to ping")
+				}
+			case <-connectionClosedC:
+				return
+			}
+		}
+	}()
+
+	wg.Wait()
 	return fmt.Errorf("disconnected")
 }
 
