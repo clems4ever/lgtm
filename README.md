@@ -50,13 +50,13 @@ The server listens for WebSocket connections from clients and forwards pull requ
 1. Run the server:
    ```bash
    export LGTM_API_AUTH_TOKEN=your-shared-token
+   export LGTM_GITHUB_CLIENT_ID=your-gh-client-id
    export LGTM_GITHUB_CLIENT_SECRET=your-gh-client-secret
    export LGTM_SESSION_STORE_ENCRYPTION_KEY=your-session-key
-   go run ./internal/server/cmd.go server --addr ":8080" --client-id "your-gh-client-id" --base-url "https://your-lgtm-url"
+   go run ./internal/server/cmd.go server --addr ":8080" --base-url "https://your-lgtm-url"
    ```
 
    - `--addr`: The address and port the server will listen on (default: `:8080`).
-   - `--client-id`: The client ID of your GitHub OAuth app.
    - `--base-url`: The base URL of the service being served (for OAuth2 redirect).
 
 2. The server will start and log the listening address:

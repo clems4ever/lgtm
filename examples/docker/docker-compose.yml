@@ -9,8 +9,6 @@ services:
     command:
       - "/app"
       - "server"
-      - "--client-id"
-      - "XXXXXXXXXXXXXXXXXXXX"
       - "--base-url"
       - "https://lgtm.clems4ever.com"
 
