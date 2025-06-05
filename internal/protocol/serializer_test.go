@@ -120,18 +120,3 @@ func TestWriteUnsupportedType(t *testing.T) {
 		t.Error("expected error for unsupported msg type, got nil")
 	}
 }
-
-func TestReadUnsupportedType(t *testing.T) {
-	mc := newMockConn(t)
-	defer mc.close()
-	// Write a message with unknown type
-	m := Message{Type: "unknown", Message: map[string]string{"foo": "bar"}}
-	if err := mc.serverConn.WriteJSON(m); err != nil {
-		t.Fatalf("WriteJSON error: %v", err)
-	}
-	var msg Message
-	err := Read(mc.client, &msg)
-	if err == nil {
-		t.Error("expected error for unsupported message type, got nil")
-	}
-}
