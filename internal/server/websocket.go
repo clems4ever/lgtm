@@ -150,9 +150,7 @@ func (s *Server) RequestApproval(link github.PRLink) error {
 
 	s.mu.Lock()
 	eligible := []*clientInfo{}
-	for _, c := range s.clientsByRepo[targetRepo] {
-		eligible = append(eligible, c)
-	}
+	eligible = append(eligible, s.clientsByRepo[targetRepo]...)
 	s.mu.Unlock()
 
 	// TODO: rewrite this without recursion.
@@ -238,9 +236,7 @@ func (s *Server) sendRPC(conn *websocket.Conn, msg protocol.ApproveRequestMessag
 
 // cleanupAsyncRequest removes a request from the asyncRequests map.
 func (s *Server) cleanupAsyncRequest(reqID string) {
-	if _, ok := s.asyncRequests[reqID]; ok {
-		delete(s.asyncRequests, reqID)
-	}
+	delete(s.asyncRequests, reqID)
 }
 
 // handleRegisterRequestMessage processes a registration message from a client and updates the server state.

@@ -48,5 +48,4 @@ func (s *Server) middlewareWebAuthMiddleware(fn http.HandlerFunc) http.HandlerFu
 func (s *Server) redirectAuth(w http.ResponseWriter, r *http.Request) {
 	authURL := s.oauth2Config.AuthCodeURL("state", oauth2.AccessTypeOnline)
 	http.Redirect(w, r, authURL, http.StatusFound)
-	return
 }

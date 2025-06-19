@@ -1,4 +1,5 @@
 .env
+.vscode/
 
 lgtm.io
 # Added by goreleaser init:
