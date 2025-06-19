@@ -1,3 +1,5 @@
+// Tests for GetAuthenticatedUserLogin method of the GitHub client.
+// These tests cover successful authentication, HTTP errors, invalid JSON responses, and network failures.
 package github
 
 import (
@@ -8,6 +10,7 @@ import (
 	"time"
 )
 
+// TestGetAuthenticatedUserLogin_Success verifies that GetAuthenticatedUserLogin returns the correct username on a successful response.
 func TestGetAuthenticatedUserLogin_Success(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/user" {
@@ -34,6 +37,7 @@ func TestGetAuthenticatedUserLogin_Success(t *testing.T) {
 	}
 }
 
+// TestGetAuthenticatedUserLogin_HTTPError checks that an HTTP error from the server results in an error from GetAuthenticatedUserLogin.
 func TestGetAuthenticatedUserLogin_HTTPError(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
@@ -52,6 +56,7 @@ func TestGetAuthenticatedUserLogin_HTTPError(t *testing.T) {
 	}
 }
 
+// TestGetAuthenticatedUserLogin_InvalidJSON ensures that invalid JSON in the response causes an error.
 func TestGetAuthenticatedUserLogin_InvalidJSON(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -71,6 +76,7 @@ func TestGetAuthenticatedUserLogin_InvalidJSON(t *testing.T) {
 	}
 }
 
+// TestGetAuthenticatedUserLogin_NetworkError verifies that a network failure results in an error from GetAuthenticatedUserLogin.
 func TestGetAuthenticatedUserLogin_NetworkError(t *testing.T) {
 	// Use an invalid URL to simulate a network error
 	client := &Client{
