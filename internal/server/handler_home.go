@@ -24,7 +24,8 @@ var homeHTML string
 // homeTemplate is the parsed HTML template for the home page.
 var homeTemplate = template.Must(template.New("home").Parse(homeHTML))
 
-// handlerHome serves the home page of the client.
+// handlerHome serves the home page for authenticated users.
+// It retrieves the username from the request context and renders the home template.
 // - For GET requests, it renders the home page with the username and number of approvers.
 // - For other HTTP methods, it responds with a 404 Not Found.
 func (s *Server) handlerHome(w http.ResponseWriter, r *http.Request) {
